@@ -36,8 +36,9 @@ describe('App Routing and Layout', () => {
   it('renders ProductDetailPage for valid product route "/product/:id"', () => {
     renderWithProviders(['/product/42'])
 
-    expect(screen.getByRole('heading', { level: 1, name: /product #42/i })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /← back to products/i })).toBeInTheDocument()
+    // Back link is always rendered; product enters loading (skeleton) while API resolves
+    expect(screen.getByRole('link', { name: /back to products/i })).toBeInTheDocument()
+    expect(screen.getByLabelText(/loading product details/i)).toBeInTheDocument()
   })
 
   it('renders invalid ID warning for non-numeric product ID', () => {
@@ -47,7 +48,7 @@ describe('App Routing and Layout', () => {
       screen.getByRole('heading', { level: 1, name: /invalid product id/i }),
     ).toBeInTheDocument()
     expect(
-      screen.getByText(/the product identifier "invalid-id" is not valid/i),
+      screen.getByText(/the url contains an invalid product identifier/i),
     ).toBeInTheDocument()
   })
 
@@ -71,7 +72,7 @@ describe('App Routing and Layout', () => {
 
     renderWithProviders(['/product/10'], preloadedState)
 
-    const backLink = screen.getByRole('link', { name: /← back to products/i })
+    const backLink = screen.getByRole('link', { name: /back to products/i })
     expect(backLink).toHaveAttribute(
       'href',
       expect.stringMatching(/\/\?category=smartphones.*q=pixel/),
