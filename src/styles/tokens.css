@@ -1,0 +1,115 @@
+/*
+ * Design tokens: the single source of truth for colors, type, spacing,
+ * radii, shadows, layout, motion, and stacking.
+ * Components should use the semantic tokens, not the raw palette.
+ */
+:root {
+  color-scheme: light;
+
+  /* ---------- Palette ---------- */
+  --palette-navy-900: #1f2a3d;
+  --palette-navy-800: #2c3a52;
+  --palette-navy-700: #3b4b66;
+
+  --palette-blue-700: #1d4ed8;
+  --palette-blue-600: #2563eb;
+  --palette-blue-100: #dbeafe;
+  --palette-blue-50: #eff6ff;
+
+  --palette-gray-0: #ffffff;
+  --palette-gray-50: #f8fafc;
+  --palette-gray-100: #f1f5f9;
+  --palette-gray-200: #e2e8f0;
+  --palette-gray-300: #cbd5e1;
+  --palette-gray-400: #94a3b8;
+  --palette-gray-500: #64748b;
+  --palette-gray-600: #475569;
+  --palette-gray-700: #334155;
+  --palette-gray-900: #0f172a;
+
+  --palette-amber-500: #f59e0b;
+  --palette-red-700: #b91c1c;
+  --palette-red-600: #dc2626;
+  --palette-red-50: #fef2f2;
+
+  /* ---------- Semantic colors ---------- */
+  --color-bg: var(--palette-gray-50);
+  --color-surface: var(--palette-gray-0);
+  --color-surface-muted: var(--palette-gray-100);
+  --color-text: var(--palette-gray-900);
+  --color-text-muted: var(--palette-gray-500);
+  --color-border: var(--palette-gray-200);
+  --color-border-strong: var(--palette-gray-300);
+
+  --color-header-bg: var(--palette-navy-800);
+  --color-header-text: var(--palette-gray-0);
+
+  --color-primary: var(--palette-blue-600);
+  --color-primary-hover: var(--palette-blue-700);
+  --color-primary-contrast: var(--palette-gray-0);
+  --color-primary-soft: var(--palette-blue-50);
+  --color-primary-soft-border: var(--palette-blue-100);
+
+  --color-rating: var(--palette-amber-500);
+  --color-danger: var(--palette-red-700);
+  --color-danger-soft: var(--palette-red-50);
+  --color-focus-ring: var(--palette-blue-600);
+
+  /* ---------- Typography ---------- */
+  --font-sans:
+    system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.25rem;
+  --text-2xl: 1.5rem;
+  --text-3xl: 1.875rem;
+
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+
+  --leading-tight: 1.25;
+  --leading-normal: 1.5;
+
+  /* ---------- Spacing (4px base) ---------- */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-10: 2.5rem;
+  --space-12: 3rem;
+  --space-16: 4rem;
+
+  /* ---------- Radii ---------- */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-full: 9999px;
+
+  /* ---------- Shadows ---------- */
+  --shadow-sm: 0 1px 2px rgb(15 23 42 / 0.06);
+  --shadow-md: 0 4px 12px rgb(15 23 42 / 0.08);
+  --shadow-lg: 0 12px 28px rgb(15 23 42 / 0.14);
+
+  /* ---------- Layout ---------- */
+  --container-max: 80rem;
+  --sidebar-width: 17rem;
+  --header-height: 4rem;
+
+  /* ---------- Motion ---------- */
+  --duration-fast: 120ms;
+  --duration-base: 200ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+
+  /* ---------- Stacking ---------- */
+  --z-header: 100;
+  --z-overlay: 150;
+  --z-drawer: 200;
+}
