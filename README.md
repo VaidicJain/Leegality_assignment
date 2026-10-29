@@ -2,7 +2,7 @@
 
 An Amazon-style product browsing app built on the public [DummyJSON Products API](https://dummyjson.com/docs/products). It has two screens: a filterable, paginated **Product Listing** and a **Product Detail** page.
 
-> **Project status:** Foundation (Redux store, typed hooks, design tokens, tooling) is in place and awaiting review. Product features are not implemented yet. Sections marked *(planned)* describe the agreed design and will be updated to match the final implementation. Demo and repository links will be added once they exist.
+> **Project status:** Foundation (Redux store, typed hooks, design tokens, tooling) and the RTK Query API layer are in place. Product UI is not implemented yet. Sections marked *(planned)* describe the agreed design and will be updated to match the final implementation. Demo and repository links will be added once they exist.
 
 ## Table of contents
 
@@ -59,7 +59,24 @@ DummyJSON filters server-side by category only. It cannot filter by price or bra
 3. Derive brand options from the current base set.
 4. Paginate the filtered result client-side (12 per page).
 
-RTK Query caches each distinct argument once, so switching back to a category does not refetch it. `limit=0` and `select` support will be verified against the live API before the API layer is built (see Decision 3).
+RTK Query caches each distinct argument once, so switching back to a category does not refetch it. `limit=0` and `select` are documented DummyJSON features. The API tests assert that the app sends them, and the live responses were checked as part of the API-layer step (see Decision 3 and the API layer below).
+
+### API layer
+
+All requests go through one RTK Query slice. `src/services/api.ts` holds only the shared configuration (base URL, base query, cache lifetime) and has no endpoints. **Each query lives in its own file** under `src/services/queries/` and attaches itself to the slice with `api.injectEndpoints`, so adding an endpoint means adding one file and one barrel line.
+
+| Hook | File | Endpoint | Notes |
+|---|---|---|---|
+| `useGetCategoriesQuery()` | `getCategories.ts` | `GET /products/categories` | Returns `{ slug, name, url }` objects |
+| `useGetProductsQuery(paging)` | `getProducts.ts` | `GET /products` | `{}` means the whole catalog (`limit=0`), with only the listing fields selected |
+| `useGetProductsByCategoryQuery({ category, ...paging })` | `getProductsByCategory.ts` | `GET /products/category/{slug}` | Same defaults, cached per category |
+| `useGetProductByIdQuery(id)` | `getProductById.ts` | `GET /products/{id}` | Full product including description, images, and reviews |
+
+Components import hooks from `@/services/queries` (the barrel), which guarantees every query is registered. `listParams.ts` holds the `select` field list and the limit/skip defaults shared by the two list queries.
+
+- List responses keep the server `total`, so the listing step can verify the dataset is complete instead of silently filtering a truncated one.
+- Conditional requests use `skipToken` in the hooks' callers, for example when a route id is not a number.
+- `src/services/errors.ts` maps any RTK Query error to a friendly message and detects 404s.
 
 ### State management
 
@@ -101,6 +118,13 @@ Every significant decision, the reason behind it, and its impact.
 | 19 | **Vitest with explicit imports (no globals)** and an explicit Testing Library `cleanup` in the setup file. | Keeps test files type-safe and explicit, with no hidden globals. | Tests import `describe`, `it`, and `expect` from `vitest`. |
 | 20 | **Folders are created only when they hold files.** | Git does not track empty folders, and placeholder files add noise. | The structure below fills in as features land. |
 | 21 | **Prettier** (no semicolons, single quotes, trailing commas, 100 columns). `README.md` is excluded. | Consistent formatting that matches the scaffold's existing style. | `npm run format:check` can be used in review or CI. Prettier would otherwise reflow the Markdown tables. |
+| 22 | **Four RTK Query endpoints that map 1:1 to the API**, sharing one params helper. List endpoints return the full response (including `total`), not just the array. | Matches the brief and the API docs, so reviewers can trace each hook to an endpoint. Keeping `total` lets the listing detect an incomplete dataset. | Callers read `data.products`. A tiny conditional hook is added in the filtering step to choose between the two list endpoints with `skipToken`. |
+| 23 | **The `select` field list is declared once** and checked against the `ProductSummary` type with `satisfies`. The detail endpoint returns the full `Product`. | Smaller list payloads (about 7 fields instead of 20+, with no reviews or images), and the compiler rejects a misspelled field. | Faster first load and cache. List items lack `description`, which only the detail page needs. |
+| 24 | **`keepUnusedDataFor: 600` and no `setupListeners`** (no refetch on window focus or reconnect). | The catalog is static fake data. The default 60 seconds would refetch the catalog (and show a skeleton) if a user lingers on a detail page and returns. Focus refetching would only add requests. | Instant Back navigation and fewer requests. Data can be up to 10 minutes old, and the Retry button still forces a fresh request. |
+| 25 | **List endpoints take an argument object** and callers pass `{}` for the full catalog. | RTK Query builds cache keys from arguments, so `{}` and `{ limit: 0 }` would be separate cache entries. Using one canonical call shape keeps one entry per dataset. | A single convention to follow. The README and endpoint comment document it. |
+| 26 | **Central error helpers** (`getApiErrorMessage`, `isNotFoundError`). | One place maps network, timeout, parsing, 404, and 5xx errors to user-facing text, which the listing and detail pages will share. | Consistent messages and no duplicated status checks in components. |
+| 27 | **API tests run in the Node environment with a stubbed `fetch`.** | jsdom's `AbortSignal` is rejected by Node's `Request`, which breaks RTK Query tests. The API layer needs no DOM. | Fast, deterministic tests with no network access. They cover URLs, parameters, caching, a 404, and a network failure. |
+| 28 | **One file per query under `src/services/queries/`**, attached to a shared base API with `injectEndpoints` and exposed through a barrel (`index.ts`). The shared base (`api.ts`) has no endpoints. | A single endpoints file grows without bound as the API surface grows. Per-query files keep each change small and reviewable, and the store still needs only one reducer and one middleware. | New endpoint = one file, its test, and one barrel line. Tests sit next to each query and share helpers in `src/test/apiTestUtils.ts`. Components must import hooks from the barrel so every query is registered. |
 
 ## Project structure
 
@@ -111,13 +135,15 @@ src/
   app/            store.ts, hooks.ts (+ store test)
   features/
     listing/      listingSlice.ts (state shape only for now)
+  services/       api.ts (base RTK Query slice), types.ts, errors.ts (+ test)
+    queries/      one file (+ test) per query, listParams.ts, index.ts (barrel)
   styles/         tokens.css, global.css
-  test/           setup.ts
+  test/           setup.ts, apiTestUtils.ts
   App.tsx         temporary shell
   main.tsx        entry point with the Redux Provider
 ```
 
-Planned additions: `services/` (RTK Query API), `components/` (layout, header, rating, image, skeleton, error and empty states), `utils/` (`filterProducts`, `paginate`, `format`), `features/product/`, and the listing UI components.
+Planned additions: `components/` (layout, header, rating, image, skeleton, error and empty states), `utils/` (`filterProducts`, `paginate`, `format`), `features/product/`, and the listing UI components.
 
 ## Setup instructions
 

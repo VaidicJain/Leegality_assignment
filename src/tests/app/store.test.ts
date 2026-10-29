@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { initialListingState } from '@/features/listing/listingSlice'
-import { setupStore } from './store'
+import { api } from '@/services/api'
+import { setupStore } from '@/app/store'
 
 describe('store', () => {
   it('initialises the listing slice with its defaults', () => {
@@ -12,5 +13,9 @@ describe('store', () => {
 
     expect(store.getState().listing.category).toBe('laptops')
     expect(store.getState().listing.page).toBe(3)
+  })
+
+  it('registers the RTK Query API reducer', () => {
+    expect(setupStore().getState()).toHaveProperty(api.reducerPath)
   })
 })
