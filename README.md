@@ -2,7 +2,7 @@
 
 An Amazon-style product browsing app built on the public [DummyJSON Products API](https://dummyjson.com/docs/products). It has two screens: a filterable, paginated **Product Listing** and a **Product Detail** page.
 
-> **Project status:** Steps 1–5 are implemented (Foundation, RTK Query API layer, React Router, App Layout & Header, Listing slice reducers with single page-reset, bidirectional URL synchronization, and Product Card, Grid, Skeletons, Error, Retry, and Empty states with live API data). The filter sidebar (category, price range, brand multi-select) and pagination controls are next in Step 6. Sections marked *(planned)* describe the agreed design and will be updated to match the final implementation. Demo and repository links will be added once they exist.
+> **Project status:** Steps 1–6 are implemented (Foundation, RTK Query API layer, React Router, Layout & Header matching mockups, Listing slice reducers with single page-reset, bidirectional URL synchronization, Product Card & Grid, Skeletons, Error/Retry/Empty states, shadcn Pagination, and Filter Sidebar with dynamic categories, min/max price range with Apply button, brand multi-select, and sidebar search). Step 7 (Product Detail page) is next. Sections marked *(planned)* describe the agreed design and will be updated to match the final implementation. Demo and repository links will be added once they exist.
 
 ## Table of contents
 

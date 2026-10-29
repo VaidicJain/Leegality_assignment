@@ -10,23 +10,20 @@ interface ProductCardProps {
 export function ProductCard({ product }: ProductCardProps) {
   const [imageError, setImageError] = useState(false)
 
-  // Format price as standard currency (e.g. $9.99)
-  const formattedPrice = new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-  }).format(product.price)
+  // Format price as standard dollar format ($699 or $999.99)
+  const formattedPrice = `$${product.price % 1 === 0 ? product.price : product.price.toFixed(2)}`
 
   return (
-    <article className="group flex h-full flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-slate-300 hover:shadow-md">
+    <article className="group flex h-full flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xs transition-all duration-200 hover:shadow-md hover:border-slate-300">
       <Link
         to={`/product/${product.id}`}
-        className="flex h-full flex-col"
+        className="flex h-full flex-col p-4"
         aria-label={`View details for ${product.title}`}
       >
         {/* Product Image Container */}
-        <div className="relative aspect-square w-full overflow-hidden bg-slate-100">
+        <div className="relative aspect-square w-full overflow-hidden rounded-lg bg-slate-50 flex items-center justify-center mb-3">
           {imageError ? (
-            <div className="flex h-full w-full items-center justify-center bg-slate-100 text-slate-400">
+            <div className="flex h-full w-full items-center justify-center text-slate-300">
               <svg
                 className="h-12 w-12"
                 fill="none"
@@ -48,36 +45,20 @@ export function ProductCard({ product }: ProductCardProps) {
               alt={product.title}
               loading="lazy"
               onError={() => setImageError(true)}
-              className="h-full w-full object-contain p-4 transition-transform duration-300 group-hover:scale-105"
+              className="h-full w-full object-contain p-2 transition-transform duration-300 group-hover:scale-105"
             />
-          )}
-
-          {product.brand && (
-            <span className="absolute bottom-2 left-2 rounded-md bg-white/90 px-2 py-0.5 text-[11px] font-medium text-slate-700 shadow-sm backdrop-blur-xs">
-              {product.brand}
-            </span>
           )}
         </div>
 
-        {/* Content Container */}
-        <div className="flex flex-1 flex-col p-4">
-          <div className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-slate-600">
-            {product.category}
-          </div>
-
-          <h3 className="line-clamp-2 text-sm font-semibold text-slate-900 group-hover:text-blue-600">
+        {/* Content Container matching screenshot */}
+        <div className="flex flex-1 flex-col justify-between">
+          <h3 className="line-clamp-1 text-sm font-semibold text-slate-900 group-hover:text-blue-600">
             {product.title}
           </h3>
 
-          <div className="mt-2 mb-3">
+          <div className="mt-2 flex items-center gap-2">
+            <span className="text-base font-bold text-slate-900">{formattedPrice}</span>
             <Rating value={product.rating} />
-          </div>
-
-          <div className="mt-auto flex items-baseline justify-between pt-2">
-            <span className="text-lg font-bold text-slate-900">{formattedPrice}</span>
-            <span className="text-xs font-semibold text-blue-600 group-hover:underline">
-              View &rarr;
-            </span>
           </div>
         </div>
       </Link>
