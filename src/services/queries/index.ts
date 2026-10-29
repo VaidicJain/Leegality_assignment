@@ -1,4 +1,3 @@
-
 export { useGetCategoriesQuery } from './getCategories'
 export { useGetProductByIdQuery } from './getProductById'
 export { useGetProductsQuery } from './getProducts'

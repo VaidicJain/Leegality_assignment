@@ -1,15 +1,16 @@
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit'
 
-export interface ListingState {
+export interface ListingFilters {
   category: string | null
   search: string
   minPrice: number | null
   maxPrice: number | null
   brands: string[]
-  page: number
 }
 
-export type ListingFilters = Omit<ListingState, 'page'>
+export interface ListingState extends ListingFilters {
+  page: number
+}
 
 export const initialListingState: ListingState = {
   category: null,
@@ -20,60 +21,38 @@ export const initialListingState: ListingState = {
   page: 1,
 }
 
-const applyFilters = (state: ListingState, patch: Partial<ListingFilters>) => {
-  Object.assign(state, patch)
-  state.page = 1
-}
-
 const listingSlice = createSlice({
   name: 'listing',
   initialState: initialListingState,
   reducers: {
-    categorySelected: (state, action: PayloadAction<string | null>) => {
-      applyFilters(state, { category: action.payload })
+    /**
+     * The only way filters change, so the page reset (and the brand reset on a category change)
+     * lives in exactly one place.
+     */
+    filtersChanged(state, action: PayloadAction<Partial<ListingFilters>>) {
+      const changes = action.payload
+
+      // Brand options depend on the category, so a different category invalidates the selection.
+      if (changes.category !== undefined && changes.category !== state.category) {
+        state.brands = []
+      }
+
+      Object.assign(state, changes)
+      state.page = 1
     },
-    searchChanged: (state, action: PayloadAction<string>) => {
-      applyFilters(state, { search: action.payload })
+
+    pageChanged(state, action: PayloadAction<number>) {
+      const page = Math.trunc(action.payload)
+      state.page = Number.isFinite(page) && page > 0 ? page : 1
     },
-    priceRangeApplied: (
-      state,
-      action: PayloadAction<{ min: number | null; max: number | null }>,
-    ) => {
-      applyFilters(state, { minPrice: action.payload.min, maxPrice: action.payload.max })
+
+    filtersCleared: () => initialListingState,
+
+    listingRestored(_state, action: PayloadAction<ListingState>) {
+      return action.payload
     },
-    brandToggled: (state, action: PayloadAction<string>) => {
-      const brand = action.payload
-      const brands = state.brands.includes(brand)
-        ? state.brands.filter((selected) => selected !== brand)
-        : [...state.brands, brand]
-      applyFilters(state, { brands })
-    },
-    filtersCleared: (state) => {
-      applyFilters(state, {
-        category: null,
-        search: '',
-        minPrice: null,
-        maxPrice: null,
-        brands: [],
-      })
-    },
-    /** Pagination is the one change that must NOT reset the page. */
-    pageChanged: (state, action: PayloadAction<number>) => {
-      state.page = Number.isInteger(action.payload) && action.payload >= 1 ? action.payload : 1
-    },
-    /** Replaces the whole listing state, used when the URL is the source */
-    listingRestored: (_state, action: PayloadAction<ListingState>) => action.payload,
   },
 })
 
-export const {
-  categorySelected,
-  searchChanged,
-  priceRangeApplied,
-  brandToggled,
-  filtersCleared,
-  pageChanged,
-  listingRestored,
-} = listingSlice.actions
-
+export const { filtersChanged, pageChanged, filtersCleared, listingRestored } = listingSlice.actions
 export const listingReducer = listingSlice.reducer

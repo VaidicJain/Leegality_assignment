@@ -1,13 +1,25 @@
-import styles from './App.module.css'
+import { BrowserRouter, Route, Routes } from 'react-router-dom'
+import { Layout } from '@/components/layout/Layout'
+import { ListingPage } from '@/pages/ListingPage'
+import { ProductDetailPage } from '@/pages/ProductDetailPage'
+import { NotFoundPage } from '@/pages/NotFoundPage'
 
-/** Temporary shell. Routing and the real layout arrive in the routing step. */
+export function AppRoutes() {
+  return (
+    <Routes>
+      <Route path="/" element={<Layout />}>
+        <Route index element={<ListingPage />} />
+        <Route path="product/:id" element={<ProductDetailPage />} />
+        <Route path="*" element={<NotFoundPage />} />
+      </Route>
+    </Routes>
+  )
+}
+
 export default function App() {
   return (
-    <main className={styles.shell}>
-      <h1 className={styles.title}>Leegality Store</h1>
-      <p className={styles.subtitle}>
-        Project foundation is ready. Product features are added in the next steps.
-      </p>
-    </main>
+    <BrowserRouter>
+      <AppRoutes />
+    </BrowserRouter>
   )
 }

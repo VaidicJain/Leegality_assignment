@@ -2,7 +2,7 @@
 
 An Amazon-style product browsing app built on the public [DummyJSON Products API](https://dummyjson.com/docs/products). It has two screens: a filterable, paginated **Product Listing** and a **Product Detail** page.
 
-> **Project status:** Foundation (Redux store, typed hooks, design tokens, tooling) and the RTK Query API layer are in place. Product UI is not implemented yet. Sections marked *(planned)* describe the agreed design and will be updated to match the final implementation. Demo and repository links will be added once they exist.
+> **Project status:** Steps 1–5 are implemented (Foundation, RTK Query API layer, React Router, App Layout & Header, Listing slice reducers with single page-reset, bidirectional URL synchronization, and Product Card, Grid, Skeletons, Error, Retry, and Empty states with live API data). The filter sidebar (category, price range, brand multi-select) and pagination controls are next in Step 6. Sections marked *(planned)* describe the agreed design and will be updated to match the final implementation. Demo and repository links will be added once they exist.
 
 ## Table of contents
 
@@ -59,7 +59,7 @@ DummyJSON filters server-side by category only. It cannot filter by price or bra
 3. Derive brand options from the current base set.
 4. Paginate the filtered result client-side (12 per page).
 
-RTK Query caches each distinct argument once, so switching back to a category does not refetch it. `limit=0` and `select` are documented DummyJSON features. The API tests assert that the app sends them, and the live responses were checked as part of the API-layer step (see Decision 3 and the API layer below).
+RTK Query caches each distinct argument once, so switching back to a category does not refetch it. `limit=0` and `select` are documented DummyJSON features. The API tests assert that the app sends them (see Decision 3 and the API layer below).
 
 ### API layer
 
