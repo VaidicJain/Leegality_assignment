@@ -2,181 +2,198 @@
 
 An Amazon-style product browsing app built on the public [DummyJSON Products API](https://dummyjson.com/docs/products). It has two screens: a filterable, paginated **Product Listing** and a **Product Detail** page.
 
-> **Project status:** Steps 1–6 are implemented (Foundation, RTK Query API layer, React Router, Layout & Header matching mockups, Listing slice reducers with single page-reset, bidirectional URL synchronization, Product Card & Grid, Skeletons, Error/Retry/Empty states, shadcn Pagination, and Filter Sidebar with dynamic categories, min/max price range with Apply button, brand multi-select, and sidebar search). Step 7 (Product Detail page) is next. Sections marked *(planned)* describe the agreed design and will be updated to match the final implementation. Demo and repository links will be added once they exist.
+## Submission links
+
+- **GitHub repository:** `<ADD GITHUB REPOSITORY URL>`
+- **Live demo:** `<ADD VERCEL DEMO URL>`
 
 ## Table of contents
 
 1. [Overview](#overview)
-2. [Tech stack](#tech-stack)
-3. [Features (planned)](#features-planned)
-4. [Architecture](#architecture)
-5. [Decision log](#decision-log)
-6. [Project structure](#project-structure)
-7. [Setup instructions](#setup-instructions)
-8. [Assumptions](#assumptions)
-9. [Improvements with more time](#improvements-with-more-time)
-10. [Submission links](#submission-links)
+2. [Features](#features)
+3. [Tech stack](#tech-stack)
+4. [Setup instructions](#setup-instructions)
+5. [Assumptions](#assumptions)
+6. [Architectural decisions](#architectural-decisions)
+7. [Project structure](#project-structure)
+8. [Testing](#testing)
+9. [Deployment](#deployment)
+10. [Improvements with more time](#improvements-with-more-time)
 
 ## Overview
 
 | Route | Screen | Purpose |
 |---|---|---|
-| `/` | Product Listing | Filter sidebar (category, price, brand), header search, product grid, pagination |
+| `/` | Product Listing | Filter sidebar (category, price, brand), search, product grid, pagination |
 | `/product/:id` | Product Detail | Image, title, price, rating, description, brand, category, Back to Products |
 
-Goals: correct combined filtering, predictable state, clean typed code, and a polished, accessible, responsive UI.
+## Features
+
+- **Listing:** product cards with image, title, price, and rating. Clicking a card opens `/product/:id`.
+- **Filters:**
+  - Categories are loaded dynamically from `GET /products/categories`.
+  - Min/max price is applied with an Apply button.
+  - Brands are multi-select, derived from the fetched products.
+  - Header and sidebar search is also available.
+  - All filters combine, update the list immediately, and reset pagination to page 1.
+- **Active-filter chips** with a "Clear all" action.
+- **Pagination** (20 products per page) with a "Showing X–Y of N products" count that reflects the filtered set.
+- **Loading, error, and empty states:** skeleton cards, an error message with Retry, and an empty-result state with a clear-filters action.
+- **Detail page:** image gallery, title, price, rating, description, brand, category, and customer reviews. It shows a not-found state for unknown ids and an invalid-id state for non-numeric ids.
+- **State preservation:** filters, search, and page survive going to a product and back via "Back to Products".
+- **Shareable URLs:** for example `/?category=laptops&minPrice=100&maxPrice=1500&brand=Apple&page=2`. Browser Back/Forward steps through filter changes.
+- **Responsive layout:** the filter sidebar is a drawer on mobile, and the layout adapts from mobile to desktop. Buttons and links have visible focus styles, and the search box and sidebar controls are keyboard-operable.
 
 ## Tech stack
 
-- **React** (functional components and hooks) with **TypeScript** in strict mode
-- **Redux Toolkit** for shared UI state, and **RTK Query** for all API fetching, caching, and error handling
+- **React 19** (functional components and hooks) with **TypeScript** in strict mode
+- **Redux Toolkit** for shared UI state and **RTK Query** for all API fetching, caching, and error handling
 - **React Router** for routing
-- **CSS Modules** with global design tokens (no UI library)
+- **Tailwind CSS v4** for styling (allowed by the brief), with `lucide-react` icons and a small pagination component. No heavy UI library.
 - **Vite** for tooling, **Vitest** and **React Testing Library** for tests, **ESLint** and **Prettier** for code quality
-
-## Features (planned)
-
-- Dynamic categories from `GET /products/categories`
-- Category filter (single select), min/max price range, multi-select brands, and header search
-- All filters work together, and the result count and pagination always reflect the real filtered set
-- Active-filter chips with a clear-all action
-- Loading skeletons, error with retry, and empty-result states
-- Product detail page with a not-found state for invalid IDs
-- Filters, search, and page preserved when navigating to a product and back
-- Shareable listing URLs (for example `/?category=laptops&min=100&page=2`)
-- Responsive layout (filter sidebar on desktop, drawer on mobile) and keyboard-accessible controls
-
-## Architecture
-
-### Data and filtering strategy (planned)
-
-DummyJSON filters server-side by category only. It cannot filter by price or brand, and brands can only be discovered from fetched products. Paginating on the server first and filtering afterwards would give wrong totals and sparse pages. The strategy is:
-
-1. Fetch the whole category-scoped product set once using `limit=0` and `select=` to keep the payload small.
-   - No category: `GET /products?limit=0&select=...`
-   - With a category: `GET /products/category/{slug}?limit=0&select=...`
-2. Apply search, price, and brand filters in one pure, unit-tested function (`filterProducts`).
-3. Derive brand options from the current base set.
-4. Paginate the filtered result client-side (12 per page).
-
-RTK Query caches each distinct argument once, so switching back to a category does not refetch it. `limit=0` and `select` are documented DummyJSON features. The API tests assert that the app sends them (see Decision 3 and the API layer below).
-
-### API layer
-
-All requests go through one RTK Query slice. `src/services/api.ts` holds only the shared configuration (base URL, base query, cache lifetime) and has no endpoints. **Each query lives in its own file** under `src/services/queries/` and attaches itself to the slice with `api.injectEndpoints`, so adding an endpoint means adding one file and one barrel line.
-
-| Hook | File | Endpoint | Notes |
-|---|---|---|---|
-| `useGetCategoriesQuery()` | `getCategories.ts` | `GET /products/categories` | Returns `{ slug, name, url }` objects |
-| `useGetProductsQuery(paging)` | `getProducts.ts` | `GET /products` | `{}` means the whole catalog (`limit=0`), with only the listing fields selected |
-| `useGetProductsByCategoryQuery({ category, ...paging })` | `getProductsByCategory.ts` | `GET /products/category/{slug}` | Same defaults, cached per category |
-| `useGetProductByIdQuery(id)` | `getProductById.ts` | `GET /products/{id}` | Full product including description, images, and reviews |
-
-Components import hooks from `@/services/queries` (the barrel), which guarantees every query is registered. `listParams.ts` holds the `select` field list and the limit/skip defaults shared by the two list queries.
-
-- List responses keep the server `total`, so the listing step can verify the dataset is complete instead of silently filtering a truncated one.
-- Conditional requests use `skipToken` in the hooks' callers, for example when a route id is not a number.
-- `src/services/errors.ts` maps any RTK Query error to a friendly message and detects 404s.
-
-### State management
-
-- **RTK Query** owns all server state. API data is never copied into Redux slices or component state.
-- A **listing slice** owns shared, serializable UI state: `category`, `search`, `minPrice`, `maxPrice`, `brands`, and `page`. The state shape is defined; its reducers arrive with the routing and listing-state step.
-- Every filter-changing reducer resets `page` to 1 in one place. Only `setPage` leaves it alone *(planned)*.
-- Derived values (filtered products, brand options, total pages) come from selectors and are never stored *(planned)*.
-- Local component state is limited to temporary UI: unsubmitted price inputs, the search input text, and the mobile filter drawer *(planned)*.
-- The store is created by a `setupStore` factory (with an optional preloaded state) so tests get isolated stores. Components use the pre-typed `useAppDispatch` and `useAppSelector` hooks.
-
-### State preservation and URLs (planned)
-
-Redux is the source of truth, so filters and page survive `/` to `/product/:id` and back. A thin URL-sync hook hydrates Redux from the URL on first load only (for shareable links), then mirrors Redux to the URL using `replace`. Direct `/product/:id` access does not depend on listing state.
-
-## Decision log
-
-Every significant decision, the reason behind it, and its impact.
-
-| # | Decision | Reason | Impact |
-|---|---|---|---|
-| 1 | **Price filter applies on Apply button click or Enter**, not on every keystroke. Category, brand, and search apply instantly. | Matches the provided mockup. Live filtering on partial input (typing "1", then "10", then "100") causes flicker and pointless intermediate results. It also gives a clear place to validate. | One extra click for price only. Fewer re-renders and no flicker. Min greater than max shows an inline error and does not apply. |
-| 2 | **Header search is shown and implemented client-side** with a custom `filterProducts` function, not `GET /products/search`. | The assignment allows client-side filtering "where required". The server search endpoint cannot be combined with category, price, and brand filters, and it is not in the required endpoint list. | Search composes correctly with every other filter. It scans the loaded set only (title, brand, category), so it is scoped to the selected category. Multi-word queries match case-insensitively with AND semantics. |
-| 3 | **Fetch the full category-scoped set once (`limit=0` plus `select`) and filter and paginate client-side.** Page size is 12. | The API cannot filter by price or brand, so server-side pagination would produce incorrect counts. At roughly 194 slim records the payload is small. 12 divides evenly into 2, 3, and 4 columns. | Totals and pages are always accurate and there is a single data path. It would not scale to a very large catalog. In that case server-side filtering would be needed. If `limit=0` proves unsupported, the fallback is chunked `limit`/`skip` fetching until `total` is reached. |
-| 4 | **Category is single-select** with an "All" option. | The category endpoint is per category, and the mockup shows one selected category. | Simple and accurate server mapping. Multi-category selection is a possible future improvement. |
-| 5 | **Changing category clears selected brands and resets the page.** Price and search are kept. | Brand options depend on the category, so old selections could become invalid or hidden. | No stale brand filters. The user re-selects brands after switching category. |
-| 6 | **Redux is the source of truth for listing state, with one-way URL sync using `replace`.** | The brief requires Redux to preserve filters. URL sync adds shareable links without a competing source of truth. Hydrating once avoids loops. | Bookmarkable listing links. Browser Back does not step through individual filter changes. Reloading restores state from the URL. |
-| 7 | **Back to Products is a plain link to `/`.** | Redux already holds the filters, and a link works even on direct visits to a detail URL. | Deterministic behavior regardless of history. Scroll position restoration is handled separately. |
-| 8 | **Products without a brand are skipped in the brand list** and excluded only while a brand is selected. No "Unbranded" option. | The API omits `brand` on some products (for example groceries). | Brand filter stays clean. Unbranded products remain visible until a brand is chosen. |
-| 9 | **Single reducer-level page reset** instead of per-component reset dispatches. | DRY. A component cannot forget to reset the page. | Consistent pagination behavior across all filters. |
-| 10 | **Vite plus React Router instead of Next.js.** | The brief mandates React Router, and Next.js has its own router. | Lightweight setup. Deployment needs an SPA rewrite so direct `/product/:id` URLs work (Vercel or Netlify). |
-| 11 | **Strict TypeScript.** No `any`, no error suppression, explicit domain types and interfaces, and `import type` for type-only imports. | Code quality and reviewer confidence. | Compile-time safety across the API layer, store, and components. |
-| 12 | **Reviews on the detail page are optional** and only added if time allows. | They appear in the mockup but not in the required field list. | Required scope is prioritized. The API already returns reviews, so this is low effort later. |
-| 13 | **TypeScript is pinned to `>=5.9.0 <6.1.0`.** | The Vite template installed TypeScript 7.0.2, which conflicts with the supported peer range of the latest `typescript-eslint` (`<6.1.0`). Pinning avoids `--legacy-peer-deps`, which would hide an unsupported combination. | Clean, supported install. Revisit the pin once `typescript-eslint` supports TypeScript 7. |
-| 14 | **Explicit strict compiler flags:** `strict`, `noUncheckedIndexedAccess`, `noImplicitOverride`, `forceConsistentCasingInFileNames`. `exactOptionalPropertyTypes` is deliberately not enabled. | The Vite template did not set `strict` explicitly. `noUncheckedIndexedAccess` forces handling of `undefined` on array and index access. `exactOptionalPropertyTypes` adds friction with React and library typings for little benefit here. | Safer code and more explicit handling of optional data such as missing brands. A little more narrowing code. |
-| 15 | **`@/` path alias** configured in both `tsconfig.app.json` and `vite.config.ts` (and therefore Vitest). | Avoids deep relative imports such as `../../../app/store`. | Cleaner imports. The two configs must stay in sync. |
-| 16 | **Light theme only and a system font stack.** | No external font requests (faster, no layout shift), and a single well-tested theme for the assessment. | No dark mode. Tokens are semantic, so adding a dark theme later is a contained change. |
-| 17 | **Two-tier design tokens:** a raw palette plus semantic tokens (`--color-primary`, `--color-text-muted`, and so on), alongside spacing, type, radius, shadow, layout, motion, and z-index scales. | Consistent UI, and components never reference raw colors. | Restyling or theming is changed in one file. Muted text and primary colors meet WCAG AA contrast on white. |
-| 18 | **`setupStore` factory plus pre-typed hooks.** The listing slice is created now as a typed state skeleton with no reducers. | A store needs at least one valid reducer. Defining the typed state now makes `RootState` meaningful. Behavior is deliberately left for the listing-state step. | Tests get isolated stores. No product behavior exists yet. |
-| 19 | **Vitest with explicit imports (no globals)** and an explicit Testing Library `cleanup` in the setup file. | Keeps test files type-safe and explicit, with no hidden globals. | Tests import `describe`, `it`, and `expect` from `vitest`. |
-| 20 | **Folders are created only when they hold files.** | Git does not track empty folders, and placeholder files add noise. | The structure below fills in as features land. |
-| 21 | **Prettier** (no semicolons, single quotes, trailing commas, 100 columns). `README.md` is excluded. | Consistent formatting that matches the scaffold's existing style. | `npm run format:check` can be used in review or CI. Prettier would otherwise reflow the Markdown tables. |
-| 22 | **Four RTK Query endpoints that map 1:1 to the API**, sharing one params helper. List endpoints return the full response (including `total`), not just the array. | Matches the brief and the API docs, so reviewers can trace each hook to an endpoint. Keeping `total` lets the listing detect an incomplete dataset. | Callers read `data.products`. A tiny conditional hook is added in the filtering step to choose between the two list endpoints with `skipToken`. |
-| 23 | **The `select` field list is declared once** and checked against the `ProductSummary` type with `satisfies`. The detail endpoint returns the full `Product`. | Smaller list payloads (about 7 fields instead of 20+, with no reviews or images), and the compiler rejects a misspelled field. | Faster first load and cache. List items lack `description`, which only the detail page needs. |
-| 24 | **`keepUnusedDataFor: 600` and no `setupListeners`** (no refetch on window focus or reconnect). | The catalog is static fake data. The default 60 seconds would refetch the catalog (and show a skeleton) if a user lingers on a detail page and returns. Focus refetching would only add requests. | Instant Back navigation and fewer requests. Data can be up to 10 minutes old, and the Retry button still forces a fresh request. |
-| 25 | **List endpoints take an argument object** and callers pass `{}` for the full catalog. | RTK Query builds cache keys from arguments, so `{}` and `{ limit: 0 }` would be separate cache entries. Using one canonical call shape keeps one entry per dataset. | A single convention to follow. The README and endpoint comment document it. |
-| 26 | **Central error helpers** (`getApiErrorMessage`, `isNotFoundError`). | One place maps network, timeout, parsing, 404, and 5xx errors to user-facing text, which the listing and detail pages will share. | Consistent messages and no duplicated status checks in components. |
-| 27 | **API tests run in the Node environment with a stubbed `fetch`.** | jsdom's `AbortSignal` is rejected by Node's `Request`, which breaks RTK Query tests. The API layer needs no DOM. | Fast, deterministic tests with no network access. They cover URLs, parameters, caching, a 404, and a network failure. |
-| 28 | **One file per query under `src/services/queries/`**, attached to a shared base API with `injectEndpoints` and exposed through a barrel (`index.ts`). The shared base (`api.ts`) has no endpoints. | A single endpoints file grows without bound as the API surface grows. Per-query files keep each change small and reviewable, and the store still needs only one reducer and one middleware. | New endpoint = one file, its test, and one barrel line. Tests sit next to each query and share helpers in `src/test/apiTestUtils.ts`. Components must import hooks from the barrel so every query is registered. |
-
-## Project structure
-
-Current:
-
-```
-src/
-  app/            store.ts, hooks.ts (+ store test)
-  features/
-    listing/      listingSlice.ts (state shape only for now)
-  services/       api.ts (base RTK Query slice), types.ts, errors.ts (+ test)
-    queries/      one file (+ test) per query, listParams.ts, index.ts (barrel)
-  styles/         tokens.css, global.css
-  test/           setup.ts, apiTestUtils.ts
-  App.tsx         temporary shell
-  main.tsx        entry point with the Redux Provider
-```
-
-Planned additions: `components/` (layout, header, rating, image, skeleton, error and empty states), `utils/` (`filterProducts`, `paginate`, `format`), `features/product/`, and the listing UI components.
 
 ## Setup instructions
 
-*(Finalized after implementation.)*
-
-Prerequisites: Node.js (current LTS) and npm.
+**Prerequisites:** Node.js 20.19+ or 22.12+ (required by Vite) and npm.
 
 ```bash
 npm install
-npm run dev           # start the dev server
-npm run build         # type-check and production build
+npm run dev           # start the dev server (Vite prints the local URL)
+npm run build         # type-check and production build into dist/
+npm run preview       # serve the production build locally
+npm test              # run unit tests once (npm run test:watch for watch mode)
 npm run typecheck     # type-check only
 npm run lint          # lint
 npm run format:check  # check formatting (npm run format to fix)
-npm test              # unit tests
 ```
+
+No environment variables or API keys are needed. The API base URL (`https://dummyjson.com`) is set in `src/services/api.ts`.
 
 ## Assumptions
 
-- Brands are derived from the fetched products and some products have none.
-- The catalog is small enough to load per category. `total` is read from the API and never hardcoded.
-- Categories are single-select, and search is scoped to the current category.
+- **Brands** are derived from the fetched products, and some products (for example groceries) have no brand. They are left out of the brand list and are hidden only while a brand is selected.
+- **Catalog size:** the whole category-scoped catalog is small enough to load in one request. The app reads `total` from the API and never hardcodes it.
+- **Category** is single-select, and search is scoped to the currently selected category.
+- **Price range** is inclusive, and an empty min or max means "no limit".
+- **Cart, account, and menu icons** in the header come from the mockup and are decorative. Cart, authentication, and checkout were out of scope.
+- **Direct links:** `/product/:id` works as a first page load and does not depend on listing history.
+
+## Architectural decisions
+
+### Data and filtering strategy
+
+DummyJSON can filter by category only. It cannot filter by price or brand, and brands can only be discovered from fetched products. Paginating on the server first and filtering afterwards would give wrong totals and sparse pages. So:
+
+1. Fetch the whole category-scoped set once, using `limit=0` and `select=` to keep the payload small.
+   - No category: `GET /products?limit=0&select=...`
+   - With a category: `GET /products/category/{slug}?limit=0&select=...`
+2. Apply search, price, and brand filters in one pure function (`src/utils/filterProducts.ts`).
+3. Derive brand options from the current set.
+4. Paginate the filtered result client-side (20 per page).
+
+RTK Query caches each distinct argument once, so switching back to a category does not refetch it. The trade-off is that this does not scale to a very large catalog, where server-side filtering would be needed.
+
+### API layer (RTK Query)
+
+All requests go through one RTK Query slice. `src/services/api.ts` holds only shared configuration (base URL, base query, cache lifetime). **Each query lives in its own file** under `src/services/queries/` and attaches itself with `api.injectEndpoints`, so adding an endpoint means adding one file and one barrel line.
+
+| Hook | Endpoint |
+|---|---|
+| `useGetCategoriesQuery()` | `GET /products/categories` |
+| `useGetProductsQuery({})` | `GET /products` |
+| `useGetProductsByCategoryQuery({ category })` | `GET /products/category/{slug}` |
+| `useGetProductByIdQuery(id)` | `GET /products/{id}` |
+
+- List endpoints request only the fields the cards need (`select`), and the field list is checked against the `ProductSummary` type with `satisfies`. The detail endpoint returns the full product, including reviews and images.
+- `skipToken` and the `skip` option avoid invalid or unnecessary requests, for example when the route id is not a number.
+- `keepUnusedDataFor: 600` keeps the static catalog cached for 10 minutes, so "Back to Products" is instant. Focus-refetching is not enabled.
+- `src/services/errors.ts` maps network, timeout, parsing, 404, and 5xx errors to friendly messages.
+
+### State management
+
+- **RTK Query owns all server state.** API data is never copied into Redux slices or component state.
+- A **listing slice** owns shared, serializable UI state: `category`, `search`, `minPrice`, `maxPrice`, `brands`, and `page`.
+- **One reducer, one reset:** every filter change goes through `filtersChanged`, which resets `page` to 1 and clears brands when the category changes. Components cannot forget to reset the page.
+- Derived values (filtered products, brand options, page count) are computed from the fetched data and filters, and are never stored.
+- Local component state is limited to temporary UI: unsubmitted price and search inputs, and the mobile filter drawer.
+- The store is created by a `setupStore` factory so tests get isolated stores.
+
+### State preservation and URLs
+
+Redux is the live state, so filters and page survive `/` to `/product/:id` and back. `useListingUrlSync` keeps the URL and Redux in step in both directions:
+
+- **URL changed** (browser Back/Forward, pasted link): the URL is loaded into Redux, and invalid values (such as `?page=0`) are cleaned up.
+- **Redux changed** (user picks a filter): a history entry is pushed, so Back steps through filter changes.
+- **First load:** a URL with parameters wins (deep link). A bare `/` is filled from Redux (returning from a product page) without adding a history entry.
+
+"Back to Products" links to the listing URL built from the saved filters (`/?category=...&page=2`), so it also works after a direct visit to a product URL.
+
+### Decision log
+
+| # | Decision | Reason |
+|---|---|---|
+| 1 | Price filter applies on **Apply** (or Enter). Category, brand, and search apply instantly. | Matches the mockup. Live filtering on partial input causes flicker and meaningless intermediate results, and Apply gives a place to validate (min greater than max shows an inline error). |
+| 2 | Search is **client-side** over title, brand, and category (all words must match), not `GET /products/search`. | The server search cannot be combined with category, price, and brand, so client-side search composes correctly with every other filter. |
+| 3 | Fetch the full category-scoped set and **filter and paginate on the client**, 20 per page. | The API cannot filter by price or brand, so server-side pagination would give wrong counts. |
+| 4 | Category is **single-select**. | The category endpoint is per category, and the mockup shows one selected category. |
+| 5 | Changing category **clears selected brands**. Price and search are kept. | Brand options depend on the category, so old selections could become invalid or hidden. |
+| 6 | **Two-way URL sync** with Redux as the live state. | Gives shareable links, working browser Back/Forward, and preserved filters across routes. |
+| 7 | **Vite plus React Router**, not Next.js. | The brief calls for React Router. A single-page app needs an SPA rewrite for deep links, provided in `vercel.json`. |
+| 8 | **Tailwind CSS v4** with `lucide-react`, no component library. | Allowed by the brief, fast to build consistently, and light. |
+| 9 | **Strict TypeScript** (`strict`, `noUncheckedIndexedAccess`), no `any`, and a `@/` path alias. | Compile-time safety, which matters for optional data such as missing brands. |
+| 10 | TypeScript is pinned to `>=5.9.0 <6.1.0`. | The newest TypeScript conflicts with the supported peer range of `typescript-eslint`, and pinning avoids `--legacy-peer-deps`. |
+| 11 | One file per query, attached with `injectEndpoints` and exposed through a barrel (`queries/index.ts`). | Keeps each endpoint small and reviewable. The store still needs only one reducer and one middleware. |
+| 12 | List endpoints take an argument object, and callers pass `{}` for the full catalog. | RTK Query builds cache keys from arguments, so one canonical call shape gives one cache entry per dataset. |
+| 13 | Products without a brand get **no "Unbranded" option**. | Keeps the brand list clean. Unbranded products stay visible until a brand is chosen. |
+| 14 | Light theme and a system font stack. | No external font requests and a single well-tested theme. |
+
+## Project structure
+
+```
+src/
+  app/            store.ts (setupStore), hooks.ts (typed hooks)
+  components/
+    common/       ErrorState, EmptyState, Rating
+    filters/      FilterSidebar
+    layout/       Layout, Header, Footer
+    product/      ProductCard, ProductGrid, ProductCardSkeleton
+    ui/           pagination
+  features/
+    listing/      listingSlice, listingQuery (URL parse/serialize), selectors,
+                  useListingUrlSync, useListingPath
+  pages/          ListingPage, ProductDetailPage, NotFoundPage
+  services/       api.ts, types.ts, errors.ts
+    queries/      one file per endpoint, listParams.ts, index.ts (barrel)
+  styles/         tokens.css, global.css
+  tests/          all tests, mirroring the source folders
+    helpers/      shared fetch mocking and fixtures
+  utils/          filterProducts.ts, cn.ts
+  App.tsx         routes
+  main.tsx        entry point with the Redux Provider
+```
+
+## Testing
+
+Run `npm test`. All tests live under `src/tests/`, mirroring the source folders:
+
+- the RTK Query layer (request URLs and parameters, caching per argument, 404 and network errors) with a stubbed `fetch` and no network access
+- the error helpers
+- the store setup
+- the listing slice (page reset, brand reset on category change) and the listing URL parse/serialize helpers
+- an app smoke test
+
+The filtering function, URL-sync hook, and page components are covered by manual testing only. Adding automated tests for them is listed below.
+
+## Deployment
+
+The app is a static Vite build (`npm run build`, output `dist/`). `vercel.json` rewrites every path to `index.html`, so direct visits and refreshes on `/product/:id` and filtered listing URLs work on Vercel. On Vercel, import the repository and use the Vite preset (build command `npm run build`, output directory `dist`).
 
 ## Improvements with more time
 
-- Server-side filtering for large catalogs
+- Automated tests for `filterProducts`, the URL-sync hook, the filter sidebar, and the listing and detail pages, plus end-to-end tests (Playwright) and a CI pipeline
+- Server-side filtering and pagination for a large catalog
 - Multi-category selection and sort options
-- Persisting listing state across sessions
+- Scroll-position restoration when returning to the listing
 - Dark theme
-- Reviews section and an image gallery on the detail page
-- End-to-end tests (Playwright) and a CI pipeline
-
-## Submission links
-
-- GitHub repository: *to be added*
-- Live demo: *to be added*
+- A working cart and navigation menu (the header icons are placeholders)
+- Accessibility audit with automated checks, and a focus trap and Escape-to-close for the mobile filter drawer
