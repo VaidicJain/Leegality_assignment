@@ -4,8 +4,8 @@ An Amazon-style product browsing app built on the public [DummyJSON Products API
 
 ## Submission links
 
-- **GitHub repository:** `<ADD GITHUB REPOSITORY URL>`
-- **Live demo:** `<ADD VERCEL DEMO URL>`
+- **GitHub repository:** [https://github.com/VaidicJain/Leegality_assignment](https://github.com/VaidicJain/Leegality_assignment)
+- **Live demo:** [https://leegality-assignment-three.vercel.app/](https://leegality-assignment-three.vercel.app/)
 
 ## Table of contents
 
